@@ -35,7 +35,7 @@ module.exports = {
     new VueLoaderPlugin(), // Make sure to include the Vue loader plugin
     new webpack.DefinePlugin({
       __VUE_OPTIONS_API__: JSON.stringify(true), // or false based on your use
-      __VUE_PROD_DEVTOOLS__: JSON.stringify(false), // set to true if you want devtools in production
+      __VUE_PROD_DEVTOOLS__: JSON.stringify(true), // set to true if you want devtools in production
       __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: JSON.stringify(false), // typically false
     }),
   ],
