@@ -11,6 +11,7 @@ let g:loaded_netrw = 1
 let g:loaded_netrwPlugin = 1
 
 "Hello from windows! Dont forget to add --sparse flag when commiting from it
+"Dont forget to git checkout FETCH-HEAD -- init.vim BEFORE git config core.sparseCheckout true
 
 highlight! DiagnosticUnderlineError gui=undercurl guisp=Red
 highlight! DiagnosticUnderlineWarn gui=undercurl guisp=Yellow
