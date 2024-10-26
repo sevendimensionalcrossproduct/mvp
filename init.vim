@@ -10,6 +10,8 @@ set shiftwidth=4
 let g:loaded_netrw = 1
 let g:loaded_netrwPlugin = 1
 
+"Hello from windows!
+
 highlight! DiagnosticUnderlineError gui=undercurl guisp=Red
 highlight! DiagnosticUnderlineWarn gui=undercurl guisp=Yellow
 highlight! DiagnosticUnderlineInfo gui=undercurl guisp=Blue
