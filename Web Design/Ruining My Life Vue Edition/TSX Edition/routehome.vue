@@ -22,7 +22,7 @@ export default defineComponent({
 });
 </script>
 
-<style scoped>
+<style lang="postcss" scoped>
 h2 {
   color: blue;
 }

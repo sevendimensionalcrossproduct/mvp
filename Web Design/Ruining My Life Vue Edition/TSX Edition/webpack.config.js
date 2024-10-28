@@ -19,7 +19,7 @@ module.exports = {
         loader: 'vue-loader',
       },
       {
-        test: /\.ts$/, //add this garbage for ts to work
+        test: /\.ts$/,
         loader: 'ts-loader',
         exclude: /node_modules/,
         options: { appendTsSuffixTo: [/\.vue$/] }, //also add this or it wont work lmao
@@ -38,16 +38,46 @@ module.exports = {
       },
       {
         test: /\.css$/,
-        use: ['style-loader', 'css-loader'],
+        use: [
+            'style-loader', 
+            'css-loader',
+            'postcss-loader' //add thist to css and all postprocessors if u want pcss post-processing xd
+        ],
+      },
+      {
+          test:/\.p(ost)?css$/,
+          use: [
+              'style-loader',
+              'css-loader',
+              'postcss-loader'
+          ],
       },
       {
           test: /\.scss$/,
           use: [
               'vue-style-loader',
               'css-loader',
-              'sass-loader'
+              'sass-loader',
+              'postcss-loader'
           ],
-      }
+      },
+      {
+          test: /\.less$/,
+          use: [
+              'vue-style-loader',
+              'css-loader',
+              'less-loader',
+              'postcss-loader'
+          ],
+      },
+      {
+          test: /\.styl(us)$/,
+          use: [
+              'vue-style-loader',
+              'css-loader',
+              'stylus-loader'
+          ],
+      },
     ],
   },
   resolve: {
