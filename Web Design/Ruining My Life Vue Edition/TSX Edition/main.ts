@@ -1,5 +1,6 @@
 import { createApp } from 'vue';
 import { createRouter, createWebHashHistory } from 'vue-router';
+import { createPinia } from 'pinia';
 import App from './App.vue';
 import LeTsx from './routetsx.vue';
 import Cock from './routefirst.vue';
@@ -19,4 +20,7 @@ const router = createRouter({
     routes,
 });
 
-createApp(App).use(router).mount('#app')
+createApp(App)
+    .use(router)
+    .use(createPinia())
+    .mount('#app')

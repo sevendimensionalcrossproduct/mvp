@@ -1,17 +1,33 @@
 <script lang="tsx">
 import { defineComponent} from 'vue';
+import { defineStore, storeToRefs, createPinia } from 'pinia';
+
+const useCounterStore = defineStore('counter', {
+    state: () => ({
+        count: 0,
+    }),
+    actions: {
+        increment() {
+            this.count++;
+        },
+        decrement() {
+            this.count--;
+        },
+    },
+});
 
 export default defineComponent({
   name: 'MyTsxComponent',
   setup() {
-    const handleClick = () => {
-      alert('Button clicked!');
-    };
+    const counter = useCounterStore(createPinia());
+    const {count} = storeToRefs(counter);
 
     return () => (
       <div>
         <h1>Welcome to My TSX Component</h1>
-        <button onClick={handleClick}>Click Me</button>
+        <button onClick={counter.increment}>The count</button> |
+        <button onClick={counter.decrement}>uncount</button> |
+        <p>Counter count: {count.value} </p>
         <ul class="color-list">
             <li>also</li> 
             <li>now</li> 
@@ -19,6 +35,7 @@ export default defineComponent({
             <li>edition</li> 
             <li>lmao</li> 
         </ul>
+        {count.value > 10 ? <p>🥵</p> : <p>click le button</p>}
       </div>
     );
   },
