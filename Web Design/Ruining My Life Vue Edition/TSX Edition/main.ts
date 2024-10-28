@@ -5,12 +5,13 @@ import LeTsx from './routetsx.vue';
 import Cock from './routefirst.vue';
 import About from './routesecond.vue';
 import Home from './routehome.vue';
-
+import ElTailwindo from './ElTailwindo.vue';
 const routes = [
     {path: '/', component: Home},
     {path: '/LeTsx', component: LeTsx},
     {path: '/Cock', component: Cock},
-    {path: '/About', component: About}
+    {path: '/About', component: About},
+    {path: '/ElTailwindo', component: ElTailwindo}
 ];
 
 const router = createRouter({
