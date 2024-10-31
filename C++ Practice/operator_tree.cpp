@@ -6,6 +6,8 @@
 #include <cctype>
 #include <stdexcept>
 #include <cmath>
+#include <set>
+#include <algorithm>
 
 enum token_type { NUMBER, OPERATOR, VARIABLE };
 enum associativity { LEFT, RIGHT };
@@ -38,20 +40,20 @@ associativity get_associativity(char some_operator){
 struct token {
     token_type type;
     double value;
-    char opperateur;
+    char token_operator;
     char variable;
 
-    token(double number_value) : type(NUMBER), value(number_value), opperateur(0), variable(0) {}
+    token(double number_value) : type(NUMBER), value(number_value), token_operator(0), variable(0) {}
 
     token(char input) {
         if (std::isalpha(input)) {
             type = VARIABLE;
             variable = input;
-            opperateur = 0;
+            token_operator = 0;
             value = 0;
         } else {
             type = OPERATOR;
-            opperateur = input;
+            token_operator = input;
             variable = 0;
             value = 0;
         }
@@ -100,7 +102,7 @@ void print_token(const token &some_token){
     if(some_token.type == NUMBER){
         std::cout << "Num:" << some_token.value;
     } else if (some_token.type == OPERATOR){
-        std::cout << "Op:" << some_token.opperateur << " p=" << get_precedence(some_token.opperateur);
+        std::cout << "Op:" << some_token.token_operator << " p=" << get_precedence(some_token.token_operator);
     } else if (some_token.type == VARIABLE){
         std::cout << "Var:" << some_token.variable;
     }
@@ -117,7 +119,7 @@ void print_tokens(const std::vector<token> &tokens){
     printf(">");
 }
 
-node* rpl_tree(const std::vector<token> &tokens){
+node* rpn_tree(const std::vector<token> &tokens){
     std::stack<node*> tree;
     std::stack<token> operators;
 
@@ -127,22 +129,39 @@ node* rpl_tree(const std::vector<token> &tokens){
         } else if (current_token.type == VARIABLE){
             tree.push(new node(current_token.variable));
         } else if (current_token.type == OPERATOR) {
-            while (!operators.empty() &&
-                (get_precedence(operators.top().opperateur) > get_precedence(current_token.opperateur) ||
-                (get_precedence(operators.top().opperateur) == get_precedence(current_token.opperateur) &&
-                get_associativity(current_token.opperateur) == LEFT))) {
-                    char operation = operators.top().opperateur;
+            if (current_token.token_operator == '('){
+                operators.push(current_token);
+            } else if (current_token.token_operator == ')'){
+                while (!operators.empty() && operators.top().token_operator != '('){
+                    char operation = operators.top().token_operator;
                     operators.pop();
                     node* right = tree.top(); tree.pop();
                     node* left = tree.top(); tree.pop();
                     tree.push(new node(operation, left, right));
+                }
+                if (operators.empty()){throw std::runtime_error("Syntax Error: Mismatched Closing Parenthesis");}
+                operators.pop(); //Get rid of opening parenthesis
+            } else {
+                while (!operators.empty() &&
+                    (get_precedence(operators.top().token_operator) > get_precedence(current_token.token_operator) ||
+                    (get_precedence(operators.top().token_operator) == get_precedence(current_token.token_operator) &&
+                    get_associativity(current_token.token_operator) == LEFT))) {
+                        char operation = operators.top().token_operator;
+                        operators.pop();
+                        node* right = tree.top(); tree.pop();
+                        node* left = tree.top(); tree.pop();
+                        tree.push(new node(operation, left, right));
+                }
+                operators.push(current_token);
             }
-            operators.push(current_token);
         }
     }
 
     while(!operators.empty()){
-        char operation = operators.top().opperateur;
+        if (operators.top().token_operator == '(') { 
+            throw std::runtime_error("Syntax Error: Mismatched Opening Parenthesis");
+        }
+        char operation = operators.top().token_operator;
         operators.pop();
         node* right = tree.top(); tree.pop();
         node* left = tree.top(); tree.pop();
@@ -151,7 +170,56 @@ node* rpl_tree(const std::vector<token> &tokens){
     return tree.top();
 }
 
-std::vector<token> generate_rpl(node* root){
+node* accumulate(node* n, double& sum, node*& varNode) {
+    if (n) {
+        if (n->type == node::NUMBER_NODE) {
+            sum += n->node_value; // Accumulate number
+        } else if (n->type == node::VARIABLE_NODE) {
+            varNode = n; // Store variable
+        } else if (n->type == node::OPERATOR_NODE) {
+            // If it's another operator, traverse further
+            if (n->node_operator == '+') {
+                accumulate(n->left_child, sum, varNode);
+                accumulate(n->right_child, sum, varNode);
+            }
+        }
+    }
+    return n; // Returning the node is optional, can be removed if not needed
+}
+
+node* simplify(node* root) {
+    if (!root) return nullptr;
+
+    // Recursively simplify left and right subtrees
+    root->left_child = simplify(root->left_child);
+    root->right_child = simplify(root->right_child);
+
+    // If the current node is an operator
+    if (root->type == node::OPERATOR_NODE) {
+        // Handle addition case
+        if (root->node_operator == '+') {
+            double constantSum = 0;
+            node* variableNode = nullptr;
+
+            // Accumulate values from left and right children
+            accumulate(root->left_child, constantSum, variableNode);
+            accumulate(root->right_child, constantSum, variableNode);
+
+            // Create a new node for the constant sum if there's a variable
+            if (variableNode) {
+                // If we have a constant sum and a variable, combine them
+                return new node('+', new node(constantSum), variableNode);
+            }
+
+            // If only constants exist, return a new constant node
+            return new node(constantSum);
+        }
+    }
+
+    return root; // Return the simplified node
+}
+
+std::vector<token> generate_rpn_string(node* root){
     std::vector<token> rpl;
 
     if (root) {
@@ -160,10 +228,10 @@ std::vector<token> generate_rpl(node* root){
         } else if (root->type == node::VARIABLE_NODE) {
             rpl.emplace_back(token(root->node_variable));
         } else if (root->type == node::OPERATOR_NODE) {
-            std::vector<token> left_rpl = generate_rpl(root->left_child);
+            std::vector<token> left_rpl = generate_rpn_string(root->left_child);
             rpl.insert(rpl.end(), left_rpl.begin(), left_rpl.end());       
 
-            std::vector<token> right_rpl = generate_rpl(root->right_child);
+            std::vector<token> right_rpl = generate_rpn_string(root->right_child);
             rpl.insert(rpl.end(), right_rpl.begin(), right_rpl.end());       
 
             rpl.emplace_back(token(root->node_operator));
@@ -178,7 +246,7 @@ std::string show_expression(const std::vector<token> &tokens) {
         if (current_token.type == NUMBER) {
             expression << current_token.value << " ";
         } else if (current_token.type == OPERATOR) {
-            expression << current_token.opperateur << " ";
+            expression << current_token.token_operator << " ";
         } else if (current_token.type == VARIABLE) {
             expression << current_token.variable << " ";
         }
@@ -186,23 +254,88 @@ std::string show_expression(const std::vector<token> &tokens) {
     return expression.str();
 }
 
+double evaluate(const std::vector<token>& tokens){
+    std::stack<double> stack;
+
+    for(const token& current_token : tokens){
+        if(current_token.type == NUMBER) {
+            stack.push(current_token.value);
+        } else if (current_token.type == OPERATOR){
+            if (stack.size() < 2) {throw std::runtime_error("Syntax Error: Invalid Expression");}
+            double rhs = stack.top(); stack.pop();
+            double lhs = stack.top(); stack.pop();
+
+            double result;
+            switch (current_token.token_operator) {
+                case '+': result = lhs + rhs; break;
+                case '-': result = lhs - rhs; break;
+                case '*': result = lhs * rhs; break;
+                case '/': 
+                    if(rhs == 0) {throw std::runtime_error("Math Error: Division by zero");}
+                    result = lhs / rhs; break;
+                case '^': result = std::pow(lhs,rhs); break;
+                default: throw std::runtime_error("Unknown operator");
+            }
+            stack.push(result);
+        }
+    }
+    if (stack.size() != 1){throw std::runtime_error("Syntax Error: Invalid Expression");}
+    return stack.top();
+}
+
+
+bool contains_variables(const std::vector<token>& tokens) {
+    for (const token& current_token : tokens) {
+        if (current_token.type == VARIABLE) {
+            return true;
+        }
+    }
+    return false;
+}
+
+std::set<char> collect_variables(const std::vector<token> &tokens){
+    std::set<char> variables;
+
+    for (const token& current_token : tokens){
+        if (current_token.type == VARIABLE){
+            variables.insert(current_token.variable);
+        }
+    }
+    return variables;
+}
 
 int main(){
     std::string input;
-    std::cout << ("Expression: ");
+    printf("Expression: ");
     std::getline(std::cin, input);
     
     std::vector<token> tokens = tokenize(input);
+    /*
     printf("Tokenized Input: ");
     print_tokens(tokens);
+    */
 
-    std::vector<token> output_tokens = generate_rpl(rpl_tree(tokens));
+    std::vector<token> output_tokens = generate_rpn_string(rpn_tree(tokens));
+    std::vector<token> simplified_tokens = generate_rpn_string(simplify(rpn_tree(tokens)));
+    /*
     printf("\nTokenized Output: ");
-    print_tokens(output_tokens);
+    print_tokens(output_tokens); 
+    */
 
-    printf("\nExpression: ");
+    printf("RPN: ");
     std::cout << show_expression(output_tokens);
 
+    if(!contains_variables(output_tokens)){
+        printf("\nResult: ");
+        std::cout << evaluate(output_tokens);
+    } else {
+        printf("\nSimplification: ");
+        std::cout << show_expression((simplified_tokens));
+        printf("\nVariable(s) found: ");
+        for (const char& variable : collect_variables(output_tokens)) {
+            std::cout << variable << " ";
+        }
+    }
 }
 
 
