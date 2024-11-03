@@ -7,7 +7,7 @@
 #include <stdexcept>
 #include <cmath>
 #include <set>
-#include <unordered_map>
+#include <algorithm>
 
 enum token_type { NUMBER, OPERATOR, VARIABLE };
 enum associativity { LEFT, RIGHT };
@@ -170,23 +170,16 @@ node* rpn_tree(const std::vector<token> &tokens){
     return tree.top();
 }
 
-void accumulate(node* n, std::unordered_map<char, int>& varCounts, double& constantSum, char oper) {
+void accumulate(node* n, double& sum, std::vector<node*>& varNodes) {
     if (n) {
         if (n->type == node::NUMBER_NODE) {
-            if (oper == '+') {
-                constantSum += n->node_value;
-            } else if (oper == '*') {
-                constantSum *= n->node_value; // Note: This may need review based on your specific use case.
-            }
+            sum += n->node_value;
         } else if (n->type == node::VARIABLE_NODE) {
-            varCounts[n->node_variable]++; // Increment count for the variable
+            varNodes.push_back(n); // Store variable
         } else if (n->type == node::OPERATOR_NODE) {
             if (n->node_operator == '+') {
-                accumulate(n->left_child, varCounts, constantSum, '+');
-                accumulate(n->right_child, varCounts, constantSum, '+');
-            } else if (n->node_operator == '*') {
-                accumulate(n->left_child, varCounts, constantSum, '*');
-                accumulate(n->right_child, varCounts, constantSum, '*');
+                accumulate(n->left_child, sum, varNodes);
+                accumulate(n->right_child, sum, varNodes);
             }
         }
     }
@@ -195,65 +188,34 @@ void accumulate(node* n, std::unordered_map<char, int>& varCounts, double& const
 node* simplify(node* root) {
     if (!root) return nullptr;
 
-    // Recursively simplify the left and right children
     root->left_child = simplify(root->left_child);
     root->right_child = simplify(root->right_child);
 
     if (root->type == node::OPERATOR_NODE) {
         if (root->node_operator == '+') {
             double constantSum = 0;
-            std::unordered_map<char, int> variableCounts;
+            std::vector<node*> variableNodes;
 
-            // Accumulate constants and variables from both children
-            accumulate(root->left_child, variableCounts, constantSum, '+');
-            accumulate(root->right_child, variableCounts, constantSum, '+');
+            accumulate(root->left_child, constantSum, variableNodes);
+            accumulate(root->right_child, constantSum, variableNodes);
 
-            // Create a new expression combining constants and variables
-            node* combinedNode = nullptr;
-            if (constantSum != 0) {
-                combinedNode = new node(constantSum); // Start with the constant
-            }
+            if (!variableNodes.empty()) {
+                node* sumNode = new node(constantSum);
+                node* combinedNode = new node('+', sumNode, variableNodes[0]);
 
-            for (std::unordered_map<char, int>::iterator it = variableCounts.begin(); it != variableCounts.end(); ++it) {
-                char varName = it->first;
-                int count = it->second;
-                if (count > 1) {
-                    // Create count * variable node
-                    combinedNode = new node('*', new node(static_cast<double>(count)), new node(varName)); // Convert count to double
-                } else {
-                    if (combinedNode) {
-                        combinedNode = new node('+', combinedNode, new node(varName)); // Combine with existing
-                    } else {
-                        combinedNode = new node(varName); // Only variables, no constant
-                    }
+                // Combine the rest of the variables if they exist
+                for (size_t i = 1; i < variableNodes.size(); ++i) {
+                    combinedNode = new node('+', combinedNode, variableNodes[i]);
                 }
+
+                return combinedNode; 
             }
 
-            return combinedNode ? combinedNode : new node(0.0); // Return 0 if nothing
-        } else if (root->node_operator == '*') {
-            double constantProduct = 1;
-            std::unordered_map<char, int> variableCounts;
-
-            // Accumulate constants and variables from both children
-            accumulate(root->left_child, variableCounts, constantProduct, '*');
-            accumulate(root->right_child, variableCounts, constantProduct, '*');
-
-            // Create a new expression combining constants and variables
-            node* productNode = nullptr;
-            if (constantProduct != 1) {
-                productNode = new node(constantProduct); // Start with the constant
-            }
-
-            for (std::unordered_map<char, int>::iterator it = variableCounts.begin(); it != variableCounts.end(); ++it) {
-                char varName = it->first;
-                productNode = new node('*', productNode, new node(varName)); // Always multiply variables
-            }
-
-            return productNode ? productNode : new node(1.0); // Return 1 if nothing
+            return new node(constantSum); 
         }
     }
 
-    return root; // Return the root if it's not an operator
+    return root;
 }
 
 
